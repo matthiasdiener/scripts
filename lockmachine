@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# algorithm:
+# - create /etc/lockmachine_message
+# - change /etc/passwd to run /etc/lockmachine_message at login for every user except caller and root
+
+
+lock_filename=/etc/lockmachine_message
+dt=$(date)
+real_user=$SUDO_USER
+
+if [ $# -lt 1 ]; then
+	echo "Locks the machine to prevent other users from logging in"
+	echo "Usage sudo $0 <message>"
+	exit 1
+fi
+
+if [[ $real_user == "" || $UID -ne 0 ]]; then
+	echo "Locks the machine to prevent other users from logging in"
+	echo "Usage sudo $0 <message>"
+	exit 2
+fi
+
+echo "locked by user '$real_user' at $dt"
+
+echo -e "#!/bin/bash\n" > $lock_filename
+echo "echo \"locked by user '$real_user' at $dt\"" >> $lock_filename
+echo "echo \"$@\"" >> $lock_filename
+echo 'exit' >> $lock_filename
+
+chmod a+x $lock_filename
+
+IFS='
+'
+for user in $( < /etc/passwd ); do
+	username=$(echo $user | awk 'BEGIN{FS=":"}{print $1}' )
+	usershell=$(echo $user | awk 'BEGIN{FS=":"}{print $7}' )
+	if [[ $username != "root" && $username != $real_user && $usershell == "/bin/bash" ]]; then
+		echo "modifying user '$username'"
+		usermod -s $lock_filename $username
+	fi
+done

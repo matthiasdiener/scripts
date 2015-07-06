@@ -1,0 +1,22 @@
+#!/bin/bash
+
+lock_filename=/etc/lockmachine_message
+
+if [[ $UID -ne 0 ]]; then
+	echo "Unlocks the machine from a previous lockmachine call"
+	echo "Usage sudo $0"
+	exit 2
+fi
+
+rm -f $lock_filename
+
+IFS='
+'
+for user in $( < /etc/passwd ); do
+	username=$(echo $user | awk 'BEGIN{FS=":"}{print $1}' )
+	usershell=$(echo $user | awk 'BEGIN{FS=":"}{print $7}' )
+	if [[ $usershell == $lock_filename ]]; then
+		echo "modifying user '$username'"
+		usermod -s /bin/bash $username
+	fi
+done
